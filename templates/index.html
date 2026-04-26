@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+	<link rel="icon" type="image/svg+xml" href="../assets/tray.svg">
+    <title>Настройка службы</title>
+    <script src="/assets/htmx.min.js"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 600px; margin: 2rem auto; }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
+        input, select { width: 100%; padding: 0.5rem; box-sizing: border-box; }
+        button { padding: 0.5rem 1rem; background: #0078D4; color: white; border: none; cursor: pointer; }
+        #result { margin-top: 1rem; padding: 1rem; background: #f0f0f0; border-radius: 4px; display: none; }
+        #result:not(:empty) { display: block; }
+        .module-list { margin-top: 2rem; border-top: 1px solid #ccc; padding-top: 1rem; }
+        .module-item { background: #f9f9f9; padding: 1rem; margin-bottom: 0.5rem; border-left: 4px solid #0078D4; }
+        .endpoint { font-family: monospace; font-size: 0.9rem; color: #666; margin-left: 1rem; }
+    </style>
+</head>
+<body>
+    <h1>Конфигурация (config.yml)</h1>
+    
+    <form hx-post="/save" hx-target="#result" hx-swap="innerHTML">
+        <div class="form-group">
+            <label for="app_name">Имя приложения:</label>
+            <input type="text" id="app_name" name="app_name" value="{{ config.app_name }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="port">Порт:</label>
+            <input type="number" id="port" name="port" value="{{ config.port }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="debug_mode">Режим отладки:</label>
+            <select id="debug_mode" name="debug_mode">
+                <option value="true" {% if config.debug_mode %}selected{% endif %}>Включен</option>
+                <option value="false" {% if !config.debug_mode %}selected{% endif %}>Выключен</option>
+            </select>
+        </div>
+
+        <button type="submit">Сохранить</button>
+    </form>
+
+    <div id="result"></div>
+
+    <div class="module-list">
+        <h2>Модули интеграции (WASM)</h2>
+        
+        <!-- Форма загрузки модуля -->
+        <form hx-post="/admin/modules/upload" hx-encoding="multipart/form-data" hx-target="#result" hx-swap="innerHTML">
+            <div class="form-group">
+                <label for="plugin">Загрузить новый .wasm модуль:</label>
+                <input type="file" id="plugin" name="plugin" accept=".wasm" required>
+            </div>
+            <button type="submit">Загрузить и активировать</button>
+        </form>
+
+        <div style="margin-top: 1.5rem;">
+            <h3>Загруженные модули:</h3>
+            {% if modules.is_empty() %}
+                <p>Нет активных модулей.</p>
+            {% else %}
+                {% for module in modules %}
+                    <div class="module-item">
+                        <strong>{{ module.info.name }}</strong> (v{{ module.info.version }})<br>
+                        <small>{{ module.info.description }}</small>
+                        
+                        {% if !module.info.settings.is_empty() %}
+                        <div style="margin-top: 1rem; padding: 1rem; background: #eee; border-radius: 4px; border: 1px solid #ddd;">
+                            <strong>Настройки модуля:</strong>
+                            <form hx-post="/admin/modules/{{ module.info.name }}/settings" hx-target="#result" style="margin-top: 0.5rem;">
+                                {% for setting in module.info.settings %}
+                                <div class="form-group" style="margin-bottom: 0.8rem;">
+                                    <label style="font-size: 0.9rem; margin-bottom: 0.2rem;">{{ setting.label }}:</label>
+                                    
+                                    {% if let SettingType::Boolean = setting.setting_type %}
+                                        <input type="checkbox" name="{{ setting.key }}" value="true" {% if module.settings.get(setting.key) == Some(&"true".to_string()) %}checked{% endif %} style="width: auto; vertical-align: middle;">
+                                    {% else if let SettingType::Password = setting.setting_type %}
+                                        <input type="password" name="{{ setting.key }}" value="{{ module.settings.get(setting.key).unwrap_or(&setting.default_value.clone().unwrap_or_default()) }}">
+                                    {% else if let SettingType::Number = setting.setting_type %}
+                                        <input type="number" name="{{ setting.key }}" value="{{ module.settings.get(setting.key).unwrap_or(&setting.default_value.clone().unwrap_or_default()) }}">
+                                    {% else %}
+                                        <input type="text" name="{{ setting.key }}" value="{{ module.settings.get(setting.key).unwrap_or(&setting.default_value.clone().unwrap_or_default()) }}">
+                                    {% endif %}
+
+                                    {% if let Some(desc) = setting.description %}
+                                        <div style="font-size: 0.75rem; color: #666; margin-top: 0.2rem;">{{ desc }}</div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                                <button type="submit" style="background: #28a745; font-size: 0.9rem;">Сохранить настройки модуля</button>
+                            </form>
+                        </div>
+                        {% endif %}
+
+                        <div style="margin-top: 0.5rem;">
+                            <strong>Эндпоинты:</strong>
+                            {% for ep in module.info.endpoints %}
+                                <div class="endpoint">{{ ep.method }} /api/modules/{{ module.info.name }}{{ ep.path }} - {{ ep.description }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

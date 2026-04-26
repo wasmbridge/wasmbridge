@@ -1,0 +1,6 @@
+[submodule "libs/wintray"]
+	path = libs/wintray
+	url = https://github.com/wasmbrigde/wintray
+[submodule "libs/wasmbrigde-plugin-template"]
+	path = libs/wasmbrigde-plugin-template
+	url = https://github.com/wasmbrigde/wasmbrigde-plugin-template

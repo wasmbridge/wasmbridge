@@ -1,0 +1,47 @@
+[package]
+name = "wasmbridge"
+version = "0.0.1"
+edition = "2024"
+
+[workspace]
+members = [
+    "libs/*",
+    "crates/plugin-protocol",
+]
+
+
+[dependencies]
+plugin-protocol = { path = "crates/plugin-protocol" }
+wintray = { path = "libs/wintray"}
+axum = { version = "0.8.9", default-features = false, features = ["http1", "form", "tokio", "query", "multipart"] }
+tokio = { version = "1.52.1", features = ["rt-multi-thread", "net"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+extism = "1.21.0"
+serde_yml = "0.0.12"
+askama = "0.15.6"
+tray-icon = "0.22.1"
+open = "5.3.4"
+tao = "0.35.0"
+resvg = { version = "0.47.0", default-features = false }
+usvg = { version = "0.47.0", default-features = false }
+tiny-skia = "0.12.0"
+rust-embed = { version = "8.11.0", default-features = false }
+mime_guess = { version = "2.0.5", default-features = false }
+reqwest = { version = "0.12", features = ["blocking", "rustls-tls"] }
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+# Оптимизация зависимостей в dev-профиле.
+# Сильно ускоряет работу приложения (особенно рендеринг SVG) при локальной разработке.
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+opt-level = 3       # Максимальная оптимизация по скорости
+lto = true          # Link-Time Optimization (уменьшает размер бинарника, ускоряет работу)
+codegen-units = 1   # Улучшает оптимизацию (ценой более долгой компиляции release)
+panic = "abort"     # Уменьшает размер бинарника (отключает размотку стека при панике)
+strip = true        # Удаляет отладочные символы, кардинально уменьшая размер файла

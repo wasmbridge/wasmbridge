@@ -1,0 +1,6 @@
+# Настройки форматирования на основе .editorconfig
+hard_tabs = true
+tab_spaces = 4
+newline_style = "Windows"
+trim_trailing_whitespace = false
+insert_final_newline = false
