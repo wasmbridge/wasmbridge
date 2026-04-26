@@ -100,8 +100,10 @@ impl ModuleRegistry {
 
         // 2. Загрузка настроек из файла (Stage 2)
         let mut settings = HashMap::new();
-        let mut config_path = std::env::current_exe().unwrap();
-        config_path.pop();
+        let mut config_path = std::env::var("APPDATA")
+            .map(std::path::PathBuf::from)
+            .expect("AppData directory not found");
+        config_path.push("WasmBridge");
         config_path.push("plugins");
         config_path.push(format!("{}_config.json", name));
 
@@ -187,9 +189,12 @@ impl ModuleRegistry {
         }
 
         // Сохранение на диск
-        let mut config_path = std::env::current_exe().unwrap();
-        config_path.pop();
+        let mut config_path = std::env::var("APPDATA")
+            .map(std::path::PathBuf::from)
+            .expect("AppData directory not found");
+        config_path.push("WasmBridge");
         config_path.push("plugins");
+
         if !config_path.exists() {
             std::fs::create_dir_all(&config_path).map_err(|e| e.to_string())?;
         }

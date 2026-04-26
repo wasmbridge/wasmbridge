@@ -14,9 +14,11 @@ compile_error!("Этот проект поддерживает только Wind
 fn main() {
     let registry = modules::ModuleRegistry::new();
 
-    // Загружаем плагины
-    let mut plugins_dir = std::env::current_exe().expect("Failed to get exe path");
-    plugins_dir.pop();
+    // Загружаем плагины из AppData
+    let mut plugins_dir = std::env::var("APPDATA")
+        .map(std::path::PathBuf::from)
+        .expect("AppData directory not found");
+    plugins_dir.push("WasmBridge");
     plugins_dir.push("plugins");
 
     if let Err(e) = registry.load_all_from_dir(plugins_dir) {

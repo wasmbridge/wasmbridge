@@ -1,7 +1,11 @@
 [package]
 name = "plugin-protocol"
 version = "0.1.0"
+authors = [
+	"WasmBridge Team",
+]
 edition = "2024"
-
+license = "MIT"
+repository = "https://github.com/wasmbrigde/wasmbrigde"
 [dependencies]
-serde = { version = "1.0.228", features = ["derive"] }
+serde = { workspace = true }

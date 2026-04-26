@@ -1,22 +1,29 @@
 [package]
 name = "wasmbridge"
 version = "0.0.1"
+authors = ["WasmBridge Team"]
+license = "MIT"
 edition = "2024"
+repository = "https://github.com/wasmbrigde/wasmbrigde"
 
 [workspace]
+
 members = [
-    "libs/*",
+    "libs/wintray",
     "crates/plugin-protocol",
 ]
 
+[workspace.dependencies]
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
 
 [dependencies]
 plugin-protocol = { path = "crates/plugin-protocol" }
 wintray = { path = "libs/wintray"}
 axum = { version = "0.8.9", default-features = false, features = ["http1", "form", "tokio", "query", "multipart"] }
 tokio = { version = "1.52.1", features = ["rt-multi-thread", "net"] }
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.149"
+serde = { workspace = true }
+serde_json = { workspace = true }
 extism = "1.21.0"
 serde_yml = "0.0.12"
 askama = "0.15.6"
@@ -45,3 +52,8 @@ lto = true          # Link-Time Optimization (уменьшает размер б
 codegen-units = 1   # Улучшает оптимизацию (ценой более долгой компиляции release)
 panic = "abort"     # Уменьшает размер бинарника (отключает размотку стека при панике)
 strip = true        # Удаляет отладочные символы, кардинально уменьшая размер файла
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
