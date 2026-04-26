@@ -204,6 +204,7 @@ async fn upload_module(
 
             return (
                 StatusCode::OK,
+                [("HX-Refresh", "true")],
                 format!("Module '{}' successfully uploaded and activated", file_name),
             )
                 .into_response();
