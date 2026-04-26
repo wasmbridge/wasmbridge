@@ -1,36 +1,36 @@
-use extism::{Manifest, Plugin, Wasm, host_fn, Function, ValType, UserData};
+use extism::{Function, Manifest, Plugin, UserData, ValType, Wasm, host_fn};
 use plugin_protocol::PluginInfo;
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
 use serde_json;
+use std::collections::HashMap;
 use std::sync::OnceLock;
+use std::sync::{Arc, RwLock};
 
 static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 
 fn get_client() -> &'static reqwest::Client {
-	CLIENT.get_or_init(|| {
-		reqwest::Client::builder()
-			.danger_accept_invalid_certs(true)
-			.build()
-			.expect("Failed to build reqwest client")
-	})
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .build()
+            .expect("Failed to build reqwest client")
+    })
 }
- 
+
 host_fn!(insecure_get(url: String) -> Vec<u8> {
-	let client = get_client();
-	
-	let handle = tokio::runtime::Handle::current();
-	let result = tokio::task::block_in_place(|| {
-		handle.block_on(async {
-			let resp = client.get(&url).send().await
-				.map_err(|e| e.to_string())?;
-			let bytes = resp.bytes().await
-				.map_err(|e| e.to_string())?;
-			Ok::<Vec<u8>, String>(bytes.to_vec())
-		})
-	});
-	
-	result.map_err(|e| extism::Error::msg(e))
+    let client = get_client();
+
+    let handle = tokio::runtime::Handle::current();
+    let result = tokio::task::block_in_place(|| {
+        handle.block_on(async {
+            let resp = client.get(&url).send().await
+                .map_err(|e| e.to_string())?;
+            let bytes = resp.bytes().await
+                .map_err(|e| e.to_string())?;
+            Ok::<Vec<u8>, String>(bytes.to_vec())
+        })
+    });
+
+    result.map_err(|e| extism::Error::msg(e))
 });
 
 pub struct PluginModule {
@@ -59,7 +59,7 @@ impl ModuleRegistry {
         for entry in std::fs::read_dir(dir_path).map_err(|e| e.to_string())? {
             let entry = entry.map_err(|e| e.to_string())?;
             let path = entry.path();
-            
+
             if path.extension().and_then(|s| s.to_str()) == Some("wasm") {
                 let wasm_bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
                 if let Err(e) = self.load_module(wasm_bytes) {
@@ -76,20 +76,24 @@ impl ModuleRegistry {
         let name = {
             // 1. Создаем временный плагин только для получения info()
             println!("Creating temporary plugin...");
-            let manifest = Manifest::new([Wasm::data(wasm_bytes.clone())])
-                .with_allowed_host("*");
-            let imports = [
-                Function::new("insecure_get", [ValType::I64], [ValType::I64], UserData::new(()), insecure_get)
-            ];
+            let manifest = Manifest::new([Wasm::data(wasm_bytes.clone())]).with_allowed_host("*");
+            let imports = [Function::new(
+                "insecure_get",
+                [ValType::I64],
+                [ValType::I64],
+                UserData::new(()),
+                insecure_get,
+            )];
             let mut tmp_plugin = Plugin::new(&manifest, imports, true)
                 .map_err(|e| format!("Failed to create temporary plugin: {}", e))?;
-            
-            let info_bytes = tmp_plugin.call::<&str, &[u8]>("info", "")
+
+            let info_bytes = tmp_plugin
+                .call::<&str, &[u8]>("info", "")
                 .map_err(|e| format!("Failed to call info(): {}", e))?;
-            
+
             let info: PluginInfo = serde_json::from_slice(info_bytes)
                 .map_err(|e| format!("Failed to parse plugin info: {}", e))?;
-            
+
             println!("Plugin name from info(): {}", info.name);
             info.name.clone()
         };
@@ -104,7 +108,9 @@ impl ModuleRegistry {
         if config_path.exists() {
             println!("Loading settings from {:?}", config_path);
             if let Ok(content) = std::fs::read_to_string(&config_path) {
-                if let Ok(loaded_settings) = serde_json::from_str::<HashMap<String, String>>(&content) {
+                if let Ok(loaded_settings) =
+                    serde_json::from_str::<HashMap<String, String>>(&content)
+                {
                     settings = loaded_settings;
                     println!("Loaded {} settings", settings.len());
                 }
@@ -119,32 +125,39 @@ impl ModuleRegistry {
             .with_allowed_host("*")
             .with_config(settings.clone().into_iter());
 
-        let imports = [
-            Function::new("insecure_get", [ValType::I64], [ValType::I64], UserData::new(()), insecure_get)
-        ];
+        let imports = [Function::new(
+            "insecure_get",
+            [ValType::I64],
+            [ValType::I64],
+            UserData::new(()),
+            insecure_get,
+        )];
         let mut plugin = Plugin::new(&manifest, imports, true)
             .map_err(|e| format!("Failed to create plugin with config: {}", e))?;
 
         // Снова получаем info (теперь у нас есть финальный плагин)
-        let info_bytes = plugin.call::<&str, &[u8]>("info", "")
+        let info_bytes = plugin
+            .call::<&str, &[u8]>("info", "")
             .map_err(|e| format!("Failed to call info() for final plugin: {}", e))?;
         let info: PluginInfo = serde_json::from_slice(info_bytes)
             .map_err(|e| format!("Failed to parse plugin info: {}", e))?;
 
         // 4. Сохраняем в реестр
         let mut modules = self.modules.write().unwrap();
-        modules.insert(name, Arc::new(RwLock::new(PluginModule { 
-            info, 
-            plugin, 
-            settings,
-            wasm_bytes
-        })));
+        modules.insert(
+            name,
+            Arc::new(RwLock::new(PluginModule { info, plugin, settings, wasm_bytes })),
+        );
 
         Ok(())
     }
 
     /// Обновление настроек плагина и сохранение на диск
-    pub fn update_settings(&self, name: &str, new_settings: HashMap<String, String>) -> Result<(), String> {
+    pub fn update_settings(
+        &self,
+        name: &str,
+        new_settings: HashMap<String, String>,
+    ) -> Result<(), String> {
         let module_arc = {
             let modules = self.modules.read().unwrap();
             modules.get(name).cloned().ok_or_else(|| format!("Module {} not found", name))?
@@ -152,16 +165,20 @@ impl ModuleRegistry {
 
         {
             let mut module = module_arc.write().unwrap();
-            
+
             // Stage 3: В Extism 1.x конфиг задается при создании.
             // Для динамического обновления пересоздаем инстанс плагина.
             let manifest = Manifest::new([Wasm::data(module.wasm_bytes.clone())])
                 .with_allowed_host("*")
                 .with_config(new_settings.clone().into_iter());
 
-            let imports = [
-                Function::new("insecure_get", [ValType::I64], [ValType::I64], UserData::new(()), insecure_get)
-            ];
+            let imports = [Function::new(
+                "insecure_get",
+                [ValType::I64],
+                [ValType::I64],
+                UserData::new(()),
+                insecure_get,
+            )];
             let new_plugin = Plugin::new(&manifest, imports, true)
                 .map_err(|e| format!("Failed to recreate plugin {}: {}", name, e))?;
 
