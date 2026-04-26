@@ -52,7 +52,7 @@
         <form hx-post="/admin/modules/upload" hx-encoding="multipart/form-data" hx-target="#result" hx-swap="innerHTML">
             <div class="form-group">
                 <label for="plugin">Загрузить новый .wasm модуль:</label>
-                <input type="file" id="plugin" name="plugin" accept=".wasm" required>
+                <input style="cursor: pointer;" type="file" id="plugin" name="plugin" accept=".wasm" required>
             </div>
             <button type="submit">Загрузить и активировать</button>
         </form>
@@ -73,16 +73,16 @@
                             <form hx-post="/admin/modules/{{ module.info.name }}/settings" hx-target="#result" style="margin-top: 0.5rem;">
                                 {% for setting in module.info.settings %}
                                 <div class="form-group" style="margin-bottom: 0.8rem;">
-                                    <label style="font-size: 0.9rem; margin-bottom: 0.2rem;">{{ setting.label }}:</label>
+                                    <label for="setting-{{ module.info.name }}-{{ setting.key }}" style="font-size: 0.9rem; margin-bottom: 0.2rem;">{{ setting.label }}:</label>
                                     
                                     {% if let SettingType::Boolean = setting.setting_type %}
-                                        <input type="checkbox" name="{{ setting.key }}" value="true" {% if module.settings.get(setting.key) == Some(&"true".to_string()) %}checked{% endif %} style="width: auto; vertical-align: middle;">
+                                        <input type="checkbox" id="setting-{{ module.info.name }}-{{ setting.key }}" name="{{ setting.key }}" value="true" {% if module.settings.get(setting.key) == Some(&"true".to_string()) %}checked{% endif %} style="width: auto; vertical-align: middle;">
                                     {% else if let SettingType::Password = setting.setting_type %}
-                                        <input type="password" name="{{ setting.key }}" value="{{ module.settings.get(setting.key).unwrap_or(&setting.default_value.clone().unwrap_or_default()) }}">
+                                        <input type="password" id="setting-{{ module.info.name }}-{{ setting.key }}" name="{{ setting.key }}" value="{{ module.settings.get(setting.key).unwrap_or(&setting.default_value.clone().unwrap_or_default()) }}">
                                     {% else if let SettingType::Number = setting.setting_type %}
-                                        <input type="number" name="{{ setting.key }}" value="{{ module.settings.get(setting.key).unwrap_or(&setting.default_value.clone().unwrap_or_default()) }}">
+                                        <input type="number" id="setting-{{ module.info.name }}-{{ setting.key }}" name="{{ setting.key }}" value="{{ module.settings.get(setting.key).unwrap_or(&setting.default_value.clone().unwrap_or_default()) }}">
                                     {% else %}
-                                        <input type="text" name="{{ setting.key }}" value="{{ module.settings.get(setting.key).unwrap_or(&setting.default_value.clone().unwrap_or_default()) }}">
+                                        <input type="text" id="setting-{{ module.info.name }}-{{ setting.key }}" name="{{ setting.key }}" value="{{ module.settings.get(setting.key).unwrap_or(&setting.default_value.clone().unwrap_or_default()) }}">
                                     {% endif %}
 
                                     {% if let Some(desc) = setting.description %}
