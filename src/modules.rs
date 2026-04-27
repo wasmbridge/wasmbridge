@@ -1,6 +1,5 @@
 use extism::{Function, Manifest, Plugin, UserData, ValType, Wasm, host_fn};
 use plugin_protocol::PluginInfo;
-use serde_json;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::sync::{Arc, RwLock};
@@ -30,7 +29,7 @@ host_fn!(insecure_get(url: String) -> Vec<u8> {
         })
     });
 
-    result.map_err(|e| extism::Error::msg(e))
+    result.map_err(extism::Error::msg)
 });
 
 pub struct PluginModule {
@@ -109,14 +108,13 @@ impl ModuleRegistry {
 
         if config_path.exists() {
             println!("Loading settings from {:?}", config_path);
-            if let Ok(content) = std::fs::read_to_string(&config_path) {
-                if let Ok(loaded_settings) =
+            if let Ok(content) = std::fs::read_to_string(&config_path)
+                && let Ok(loaded_settings) =
                     serde_json::from_str::<HashMap<String, String>>(&content)
                 {
                     settings = loaded_settings;
                     println!("Loaded {} settings", settings.len());
                 }
-            }
         } else {
             println!("No config file found at {:?}", config_path);
         }
