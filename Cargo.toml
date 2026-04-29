@@ -45,19 +45,16 @@ reqwest = { version = "0.12", features = ["blocking", "rustls-tls"] }
 opt-level = 0
 debug = true
 
-# Оптимизация зависимостей в dev-профиле.
-# Сильно ускоряет работу приложения (особенно рендеринг SVG) при локальной разработке.
 [profile.dev.package."*"]
 opt-level = 3
 
 [profile.release]
-opt-level = 3       # Максимальная оптимизация по скорости
-lto = true          # Link-Time Optimization (уменьшает размер бинарника, ускоряет работу)
-codegen-units = 1   # Улучшает оптимизацию (ценой более долгой компиляции release)
-panic = "abort"     # Уменьшает размер бинарника (отключает размотку стека при панике)
-strip = true        # Удаляет отладочные символы, кардинально уменьшая размер файла
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
 
-# The profile that 'dist' will build with
 [profile.dist]
 inherits = "release"
 lto = "thin"
