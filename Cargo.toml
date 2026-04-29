@@ -10,7 +10,7 @@ repository = "https://github.com/wasmbrigde/wasmbrigde"
 
 members = [
     "libs/wintray",
-    "crates/plugin-protocol",
+    "crates/plugin-protocol", "libs/reverse_push",
 ]
 
 exclude = [

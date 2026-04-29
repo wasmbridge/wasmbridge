@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package control_plane;
+
+// Сервис управления, реализующий Reverse Push архитектуру.
+service ControlPlane {
+  // Двунаправленный стрим. Клиент подключается и удерживает соединение.
+  // Клиент шлет ClientEvent (регистрация, пинги, ответы).
+  // Сервер шлет CloudCommand (команды на выполнение).
+  rpc StreamCommands(stream ClientEvent) returns (stream CloudCommand);
+}
+
+// События, отправляемые клиентом (из-за NAT) в облако
+message ClientEvent {
+  oneof event {
+    RegistrationRequest register = 1;
+    Heartbeat ping = 2;
+    CommandResponse response = 3;
+    LogMessage log = 4;
+  }
+}
+
+// Запрос на регистрацию при установке стрима
+message RegistrationRequest {
+  string client_id = 1;
+  string version = 2;
+}
+
+message Heartbeat {
+  int64 timestamp = 1;
+}
+
+// Ответ на выполненную команду
+message CommandResponse {
+  string command_id = 1;
+  bool success = 2;
+  bytes data = 3; // Опциональная полезная нагрузка от плагина
+  string error_message = 4;
+}
+
+message LogMessage {
+  string level = 1;
+  string message = 2;
+}
+
+// Команды, отправляемые облаком клиенту (Push)
+message CloudCommand {
+  string command_id = 1;
+  oneof command {
+    ExecutePluginAction execute_plugin = 2;
+    UpdateConfiguration update_config = 3;
+    RestartService restart = 4;
+  }
+}
+
+// Команда на выполнение действия внутри WASM-плагина
+message ExecutePluginAction {
+  string target_plugin = 1;
+  string action = 2;
+  bytes payload = 3; // Полезная нагрузка для плагина
+}
+
+// Обновление конфигурации агента
+message UpdateConfiguration {
+  string config_json = 1;
+}
+
+// Команда на перезапуск сервиса
+message RestartService {
+  int32 delay_seconds = 1;
+}
