@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
 	<link rel="icon" type="image/svg+xml" href="../assets/tray.svg">
-    <title>Настройка службы</title>
+    <title>WasmBridge Configuration</title>
     <script src="/assets/htmx.min.js"></script>
     <style>
         body { font-family: system-ui, sans-serif; max-width: 600px; margin: 2rem auto; }
@@ -19,56 +19,56 @@
     </style>
 </head>
 <body>
-    <h1>Конфигурация (config.yml)</h1>
+    <h1>Global Configuration (config.yml)</h1>
     
     <form hx-post="/save" hx-target="#result" hx-swap="innerHTML">
         <div class="form-group">
-            <label for="app_name">Имя приложения:</label>
+            <label for="app_name">Application Name:</label>
             <input type="text" id="app_name" name="app_name" value="{{ config.app_name }}" required>
         </div>
 
         <div class="form-group">
-            <label for="port">Порт:</label>
+            <label for="port">Local HTTP Port:</label>
             <input type="number" id="port" name="port" value="{{ config.port }}" required>
         </div>
 
         <div class="form-group">
-            <label for="server_url">Адрес облачного сервера:</label>
+            <label for="server_url">Cloud Server Address:</label>
             <input type="text" id="server_url" name="server_url" value="{{ config.server_url }}" required>
         </div>
 
         <div class="form-group">
-            <label for="jwt_token">JWT Токен (Подписка):</label>
-            <input type="text" id="jwt_token" name="jwt_token" value="{{ config.jwt_token.clone().unwrap_or_default() }}" placeholder="Введите токен для связи с облаком">
+            <label for="jwt_token">JWT Token (Subscription):</label>
+            <input type="text" id="jwt_token" name="jwt_token" value="{{ config.jwt_token.clone().unwrap_or_default() }}" placeholder="Enter token for cloud connection">
         </div>
 
         <div class="form-group" style="background: #eef; padding: 10px; border-radius: 4px; border: 1px solid #ccd;">
-            <label>Ваш Hardware ID (для лицензии):</label>
+            <label>Your Hardware ID (for licensing):</label>
             <code style="word-break: break-all;">{{ hardware_id }}</code>
-            <div style="font-size: 0.8rem; color: #555; margin-top: 5px;">Передайте этот ID администратору для получения токена.</div>
+            <div style="font-size: 0.8rem; color: #555; margin-top: 5px;">Provide this ID to the administrator to receive a token.</div>
         </div>
 
-        <button type="submit">Сохранить</button>
+        <button type="submit">Save Global Settings</button>
     </form>
 
     <div id="result"></div>
 
     <div class="module-list">
-        <h2>Модули интеграции (WASM)</h2>
+        <h2>Integration Modules (WASM)</h2>
         
-        <!-- Форма загрузки модуля -->
+        <!-- Module Upload Form -->
         <form hx-post="/admin/modules/upload" hx-encoding="multipart/form-data" hx-target="#result" hx-swap="innerHTML">
             <div class="form-group">
-                <label for="plugin">Загрузить новый .wasm модуль:</label>
+                <label for="plugin">Upload new .wasm module:</label>
                 <input style="cursor: pointer;" type="file" id="plugin" name="plugin" accept=".wasm" required>
             </div>
-            <button type="submit">Загрузить и активировать</button>
+            <button type="submit">Upload & Activate</button>
         </form>
 
         <div style="margin-top: 1.5rem;">
-            <h3>Загруженные модули:</h3>
+            <h3>Loaded Modules:</h3>
             {% if modules.is_empty() %}
-                <p>Нет активных модулей.</p>
+                <p>No active modules.</p>
             {% else %}
                 {% for module in modules %}
                     <div class="module-item">
@@ -77,7 +77,7 @@
                         
                         {% if !module.info.settings.is_empty() %}
                         <div style="margin-top: 1rem; padding: 1rem; background: #eee; border-radius: 4px; border: 1px solid #ddd;">
-                            <strong>Настройки модуля:</strong>
+                            <strong>Module Settings:</strong>
                             <form hx-post="/admin/modules/{{ module.info.name }}/settings" hx-target="#result" style="margin-top: 0.5rem;">
                                 {% for setting in module.info.settings %}
                                 <div class="form-group" style="margin-bottom: 0.8rem;">
@@ -98,15 +98,25 @@
                                     {% endif %}
                                 </div>
                                 {% endfor %}
-                                <button type="submit" style="background: #28a745; font-size: 0.9rem;">Сохранить настройки модуля</button>
+                                <button type="submit" style="background: #28a745; font-size: 0.9rem;">Save Module Settings</button>
                             </form>
                         </div>
                         {% endif %}
 
                         <div style="margin-top: 0.5rem;">
-                            <strong>Эндпоинты:</strong>
+                            <strong>Endpoints:</strong>
                             {% for ep in module.info.endpoints %}
                                 <div class="endpoint">{{ ep.method }} /api/modules/{{ module.info.name }}{{ ep.path }} - {{ ep.description }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
+                <div class="endpoint">{{ ep.method }} /api/modules/{{ module.info.name }}{{ ep.path }} - {{ ep.description }}</div>
                             {% endfor %}
                         </div>
                     </div>
