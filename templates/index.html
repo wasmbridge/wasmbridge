@@ -33,11 +33,19 @@
         </div>
 
         <div class="form-group">
-            <label for="debug_mode">Режим отладки:</label>
-            <select id="debug_mode" name="debug_mode">
-                <option value="true" {% if config.debug_mode %}selected{% endif %}>Включен</option>
-                <option value="false" {% if !config.debug_mode %}selected{% endif %}>Выключен</option>
-            </select>
+            <label for="server_url">Адрес облачного сервера:</label>
+            <input type="text" id="server_url" name="server_url" value="{{ config.server_url }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="jwt_token">JWT Токен (Подписка):</label>
+            <input type="text" id="jwt_token" name="jwt_token" value="{{ config.jwt_token.clone().unwrap_or_default() }}" placeholder="Введите токен для связи с облаком">
+        </div>
+
+        <div class="form-group" style="background: #eef; padding: 10px; border-radius: 4px; border: 1px solid #ccd;">
+            <label>Ваш Hardware ID (для лицензии):</label>
+            <code style="word-break: break-all;">{{ hardware_id }}</code>
+            <div style="font-size: 0.8rem; color: #555; margin-top: 5px;">Передайте этот ID администратору для получения токена.</div>
         </div>
 
         <button type="submit">Сохранить</button>
