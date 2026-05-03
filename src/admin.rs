@@ -1,7 +1,7 @@
-use wintray::exports::*;
 use plugin_protocol::{PluginRequest, PluginResponse, SettingType};
 use std::collections::HashMap;
 use wintray::config::{load_config, save_config as framework_save_config};
+use wintray::exports::*;
 
 // Static assets embedded into the WasmBridge binary (e.g., UI CSS, JS, images).
 #[wintray_assets]
@@ -79,7 +79,9 @@ async fn save_config(Form(config): Form<AppConfig>) -> impl IntoResponse {
         Ok(_) => {
             Html("<span style='color: green;'>Configuration saved successfully!</span>".to_string())
         }
-        Err(e) => Html(format!("<span style='color: red;'>Error saving configuration: {}</span>", e)),
+        Err(e) => {
+            Html(format!("<span style='color: red;'>Error saving configuration: {}</span>", e))
+        }
     }
 }
 
@@ -247,7 +249,9 @@ async fn save_module_settings(
     Form(settings): Form<HashMap<String, String>>,
 ) -> impl IntoResponse {
     match registry.update_settings(&module_name, settings) {
-        Ok(_) => Html("<span style='color: green;'>Module settings saved successfully!</span>".to_string()),
+        Ok(_) => Html(
+            "<span style='color: green;'>Module settings saved successfully!</span>".to_string(),
+        ),
         Err(e) => Html(format!("<span style='color: red;'>Error saving settings: {}</span>", e)),
     }
 }

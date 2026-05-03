@@ -7,5 +7,8 @@ authors = [
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/wasmbrigde/wasmbrigde"
+[lib]
+name = "plugin_protocol"
+path = "src/lib.rs"
 [dependencies]
 serde = { workspace = true }

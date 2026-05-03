@@ -21,23 +21,22 @@ serde = { version = "1.0.228", features = [
 	"derive",
 ] }
 serde_json = "1.0.149"
-
 [dependencies]
 plugin-protocol = { path = "crates/plugin-protocol" }
-wintray = { path = "libs/wintray" }
+wintray = { git = "https://github.com/wasmbridge/wintray" }
+wasmbridge-client-proto = { git = "https://github.com/wasmbridge/bridge-protocol" }
 tonic = { version = "0.12.3", features = [
 	"tls",
 	"transport",
 	"channel",
 	"tls-native-roots",
 ] }
-wasmbridge-client-proto = { path = "../bridge-protocol/crates/wasmbridge-client-proto" }
 tokio = { version = "1.52.1", features = [
 	"rt-multi-thread",
 	"net",
 	"sync",
 	"macros",
-	"time"
+	"time",
 ] }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -55,7 +54,10 @@ rustls = { version = "0.23", features = [
 	"ring",
 ] }
 chrono = "0.4"
-
+[patch."https://github.com/wasmbrigde/wintray.git"]
+wintray = { path = "libs/wintray" }
+[patch."https://github.com/wasmbridge/bridge-protocol.git"]
+wasmbridge-client-proto = { path = "../bridge-protocol/crates/wasmbridge-client-proto" }
 [profile.dev]
 opt-level = 0
 debug = true
@@ -70,3 +72,6 @@ strip = true
 [profile.dist]
 inherits = "release"
 lto = "thin"
+[[bin]]
+name = "wasmbridge"
+path = "src/main.rs"

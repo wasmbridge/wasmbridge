@@ -1,7 +1,7 @@
 //! Shared data structures and protocols for the WasmBridge plugin system.
-//! 
-//! This crate defines the common types used for communication between the 
-//! WasmBridge host and its WebAssembly plugins, as well as the structures 
+//!
+//! This crate defines the common types used for communication between the
+//! WasmBridge host and its WebAssembly plugins, as well as the structures
 //! for cloud-based "Reverse Push" commands.
 
 use serde::{Deserialize, Serialize};

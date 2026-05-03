@@ -2,14 +2,14 @@ use sha2::{Digest, Sha256};
 use sysinfo::System;
 
 /// Generates a human-readable unique identifier for the current host.
-/// 
-/// The ID is composed of the system hostname and a short hash of 
-/// hardware parameters (CPU, OS, Total Memory) to ensure uniqueness 
+///
+/// The ID is composed of the system hostname and a short hash of
+/// hardware parameters (CPU, OS, Total Memory) to ensure uniqueness
 /// across different machines.
 pub fn get_unique_client_id() -> String {
     let hostname = System::host_name().unwrap_or_else(|| "unknown-host".to_string());
     let hash = generate_hardware_hash();
-    
+
     // Take first 8 chars of hash for brevity in the ID, while keeping uniqueness high
     format!("{}-{}", hostname, &hash[..8])
 }
@@ -33,7 +33,8 @@ pub fn generate_hardware_hash() -> String {
     let total_memory = sys.total_memory();
 
     // 4. Raw data string for hashing
-    let raw_hardware_string = format!("{}-{}-{}-{}-{}", host_name, os_name, os_version, cpu_info, total_memory);
+    let raw_hardware_string =
+        format!("{}-{}-{}-{}-{}", host_name, os_name, os_version, cpu_info, total_memory);
 
     // 5. SHA256 Hash
     let mut hasher = Sha256::new();

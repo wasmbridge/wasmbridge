@@ -3,7 +3,9 @@ mod hardware_id;
 mod modules;
 
 use wasmbridge_client_proto::ReversePushBuilder;
-use wasmbridge_client_proto::control_plane::{ClientEvent, CommandResponse, cloud_command::Command};
+use wasmbridge_client_proto::control_plane::{
+    ClientEvent, CommandResponse, cloud_command::Command,
+};
 use wintray::WintrayAppBuilder;
 use wintray::config::load_config;
 
@@ -47,9 +49,9 @@ fn main() {
     // File Watcher for config.yml
     let reconnect_tx_watcher = reconnect_tx.clone();
     rt.spawn(async move {
-        use notify::{Watcher, RecursiveMode, EventKind};
+        use notify::{EventKind, RecursiveMode, Watcher};
         let config_path = wintray::config::get_config_path();
-        
+
         let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
             if let Ok(event) = res {
                 if matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_)) {
@@ -57,12 +59,15 @@ fn main() {
                     let _ = reconnect_tx_watcher.try_send(());
                 }
             }
-        }).expect("Failed to start watcher");
+        })
+        .expect("Failed to start watcher");
 
         watcher.watch(&config_path, RecursiveMode::NonRecursive).expect("Failed to watch config");
-        
+
         // Keep the watcher alive
-        loop { tokio::time::sleep(std::time::Duration::from_secs(3600)).await; }
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
+        }
     });
 
     rt.spawn(async move {

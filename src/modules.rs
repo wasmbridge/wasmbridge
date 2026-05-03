@@ -160,7 +160,7 @@ impl ModuleRegistry {
             .call::<&str, &[u8]>("info", "")
             .map_err(|e| format!("Failed to call info() for final plugin: {}", e))?;
         let info: PluginInfo = serde_json::from_slice(info_bytes)
-                .map_err(|e| format!("Failed to parse plugin info: {}", e))?;
+            .map_err(|e| format!("Failed to parse plugin info: {}", e))?;
 
         // Stage 4: Store the module in the registry.
         let mut modules = self
