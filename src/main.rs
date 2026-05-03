@@ -2,7 +2,7 @@ mod admin;
 mod hardware_id;
 mod modules;
 
-use wasmbridge_client_proto::ReversePushBuilder;
+use wasmbridge_client_proto::prelude::*;
 use wasmbridge_client_proto::control_plane::{
     ClientEvent, CommandResponse, cloud_command::Command,
 };

@@ -25,12 +25,6 @@ serde_json = "1.0.149"
 plugin-protocol = { path = "crates/plugin-protocol" }
 wintray = { git = "https://github.com/wasmbridge/wintray" }
 wasmbridge-client-proto = { git = "https://github.com/wasmbridge/bridge-protocol" }
-tonic = { version = "0.12.3", features = [
-	"tls",
-	"transport",
-	"channel",
-	"tls-native-roots",
-] }
 tokio = { version = "1.52.1", features = [
 	"rt-multi-thread",
 	"net",

@@ -5324,7 +5324,6 @@ dependencies = [
  "sha2",
  "sysinfo",
  "tokio",
- "tonic",
  "wasmbridge-client-proto",
  "wintray 0.0.1 (git+https://github.com/wasmbridge/wintray)",
 ]
