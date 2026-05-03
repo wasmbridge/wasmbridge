@@ -42,6 +42,11 @@
             <input type="text" id="jwt_token" name="jwt_token" value="{{ config.jwt_token.clone().unwrap_or_default() }}" placeholder="Enter token for cloud connection">
         </div>
 
+        <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="debug_mode" name="debug_mode" value="true" {% if config.debug_mode %}checked{% endif %} style="width: auto;">
+            <label for="debug_mode" style="margin-bottom: 0;">Enable Debug Mode</label>
+        </div>
+
         <div class="form-group" style="background: #eef; padding: 10px; border-radius: 4px; border: 1px solid #ccd;">
             <label>Your Hardware ID (for licensing):</label>
             <code style="word-break: break-all;">{{ hardware_id }}</code>
@@ -107,16 +112,6 @@
                             <strong>Endpoints:</strong>
                             {% for ep in module.info.endpoints %}
                                 <div class="endpoint">{{ ep.method }} /api/modules/{{ module.info.name }}{{ ep.path }} - {{ ep.description }}</div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        </div>
-    </div>
-</body>
-</html>
-                <div class="endpoint">{{ ep.method }} /api/modules/{{ module.info.name }}{{ ep.path }} - {{ ep.description }}</div>
                             {% endfor %}
                         </div>
                     </div>

@@ -1,19 +1,16 @@
-use askama::Template;
-use axum::{
-    Router,
-    body::Bytes,
-    extract::{Form, Path, Query, State},
-    http::{HeaderMap, StatusCode},
-    response::{Html, IntoResponse, Response},
-    routing::{any, get, post},
-};
+use wintray::exports::*;
 use plugin_protocol::{PluginRequest, PluginResponse, SettingType};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use wintray::config::{load_config, save_config as framework_save_config};
 
+// Static assets embedded into the WasmBridge binary (e.g., UI CSS, JS, images).
+#[wintray_assets]
+#[folder = "assets/"]
+pub struct Assets;
+
 /// Main application configuration structure.
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(default)]
 pub struct AppConfig {
     pub app_name: String,
     pub port: u16,
@@ -42,7 +39,7 @@ pub struct ModuleDisplayData {
 }
 
 /// Template structure for the main admin dashboard page.
-#[derive(Template)]
+#[wintray_template]
 #[template(path = "index.html")]
 struct IndexTemplate {
     config: AppConfig,
@@ -260,7 +257,6 @@ pub fn admin_routes(registry: crate::modules::ModuleRegistry) -> Router {
     Router::new()
         .route("/", get(render_index))
         .route("/save", post(save_config))
-        .route("/assets/{*path}", get(crate::assets::static_handler))
         .route("/api/modules/{module_name}/{*subpath}", any(dispatch_request))
         .route("/admin/modules/upload", post(upload_module))
         .route("/admin/modules/{module_name}/settings", post(save_module_settings))
