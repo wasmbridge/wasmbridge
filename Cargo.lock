@@ -6369,7 +6369,7 @@ dependencies = [
 [[package]]
 name = "wintray"
 version = "0.0.1"
-source = "git+https://github.com/wasmbridge/wintray#61c2212104379ed699932f318faf12121c803ec0"
+source = "git+https://github.com/wasmbridge/wintray#c4172d84c4f099cc2e8f06278990aef120b4ebbb"
 dependencies = [
  "askama",
  "axum 0.8.9",
@@ -6402,7 +6402,7 @@ dependencies = [
 [[package]]
 name = "wintray-macros"
 version = "0.0.1"
-source = "git+https://github.com/wasmbridge/wintray#61c2212104379ed699932f318faf12121c803ec0"
+source = "git+https://github.com/wasmbridge/wintray#c4172d84c4f099cc2e8f06278990aef120b4ebbb"
 dependencies = [
  "proc-macro2",
  "quote",

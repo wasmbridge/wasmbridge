@@ -51,20 +51,23 @@ fn main() {
     rt.spawn(async move {
         use notify::{EventKind, RecursiveMode, Watcher};
         let config_path = wintray::config::get_config_path();
+        let config_dir = config_path.parent().unwrap_or(std::path::Path::new("."));
+
+        println!("[HotReload] Watching directory for config changes: {:?}", config_dir);
 
         let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
             if let Ok(event) = res {
-                if matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_)) {
-                    println!("[HotReload] Config changed, signaling reconnection...");
+                let is_config_event = event.paths.iter().any(|p| p.ends_with("config.yml"));
+                if is_config_event && matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_)) {
+                    println!("[HotReload] config.yml changed, signaling reconnection...");
                     let _ = reconnect_tx_watcher.try_send(());
                 }
             }
         })
         .expect("Failed to start watcher");
 
-        watcher.watch(&config_path, RecursiveMode::NonRecursive).expect("Failed to watch config");
+        watcher.watch(config_dir, RecursiveMode::NonRecursive).expect("Failed to watch config directory");
 
-        // Keep the watcher alive
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
         }
@@ -77,7 +80,17 @@ fn main() {
             let client_id = hardware_id::get_unique_client_id();
             let registry_task_loop = registry_for_push.clone();
 
-            println!("[ReversePush] Connecting with token: {}...", config.jwt_token.as_deref().unwrap_or("none").chars().take(10).collect::<String>());
+            let token_display = config.jwt_token.as_deref().unwrap_or("none");
+            let token_summary = if token_display.len() > 20 {
+                format!("{}...{}", &token_display[..10], &token_display[token_display.len()-10..])
+            } else {
+                token_display.to_string()
+            };
+
+            println!("[ReversePush] Connecting to {} with token: {}...", 
+                endpoint,
+                token_summary
+            );
 
             let mut push_builder = ReversePushBuilder::new()
                 .endpoint(endpoint)
@@ -100,55 +113,72 @@ fn main() {
                 push_builder = push_builder.with_tls_config(tls_config);
             }
 
-            let mut push_client = match push_builder.build_and_run().await {
-                Ok(client) => client,
-                Err(e) => {
-                    eprintln!("[ReversePush] Connection failed: {}. Retrying in 5s...", e);
-                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-                    continue;
-                }
-            };
-
-            println!("[Router] Connected. Starting command routing loop...");
-
-            // Select loop: process commands OR wait for reconnection signal
-            loop {
-                tokio::select! {
-                    Some(cloud_cmd) = push_client.receive_command() => {
-                        if let Some(command) = cloud_cmd.command {
-                            match command {
-                                Command::ExecutePlugin(action) => {
-                                    println!("[Router] Received ExecutePlugin for '{}'", action.target_plugin);
-                                    let registry_task = registry_task_loop.clone();
-                                    let result = tokio::task::spawn_blocking(move || {
-                                        registry_task.execute_command(&action.target_plugin, &action.action, &action.payload)
-                                    }).await.unwrap();
-
-                                    let (success, response_data, error_msg) = match result {
-                                        Ok(data) => (true, data, String::new()),
-                                        Err(e) => (false, Vec::new(), e)
-                                    };
-
-                                    let response_event = ClientEvent {
-                                        event: Some(wasmbridge_client_proto::control_plane::client_event::Event::Response(CommandResponse {
-                                            command_id: cloud_cmd.command_id,
-                                            success,
-                                            data: response_data,
-                                            error_message: error_msg,
-                                        })),
-                                    };
-                                    let _ = push_client.send_event(response_event).await;
-                                }
-                                _ => {}
+            // Step 1: Attempt to establish connection, but be interruptible by hot-reload
+            let mut push_client = tokio::select! {
+                res = push_builder.build_and_run() => match res {
+                    Ok(client) => client,
+                    Err(e) => {
+                        eprintln!("[ReversePush] Connection failed: {}. Retrying in 5s...", e);
+                        tokio::select! {
+                            _ = tokio::time::sleep(std::time::Duration::from_secs(5)) => {
+                                continue;
                             }
-                        }
-                    }
-                    _ = reconnect_rx.recv() => {
-                        println!("[HotReload] Reconnecting with new configuration...");
-                        break; // Break inner loop to restart outer loop and reload config
+                            _ = reconnect_rx.recv() => {
+                        println!("[HotReload] Received signal during retry sleep. Waiting for file to settle...");
+                        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                        continue;
                     }
                 }
             }
+        },
+        _ = reconnect_rx.recv() => {
+            println!("[HotReload] Received signal during connection attempt. Waiting for file to settle...");
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            continue;
+        }
+    };
+
+    println!("[Router] Connected. Starting command routing loop...");
+
+    // Step 2: Main command processing loop
+    loop {
+        tokio::select! {
+            Some(cloud_cmd) = push_client.receive_command() => {
+                if let Some(command) = cloud_cmd.command {
+                    match command {
+                        Command::ExecutePlugin(action) => {
+                            println!("[Router] Received ExecutePlugin for '{}'", action.target_plugin);
+                            let registry_task = registry_task_loop.clone();
+                            let result = tokio::task::spawn_blocking(move || {
+                                registry_task.execute_command(&action.target_plugin, &action.action, &action.payload)
+                            }).await.unwrap();
+
+                            let (success, response_data, error_msg) = match result {
+                                Ok(data) => (true, data, String::new()),
+                                Err(e) => (false, Vec::new(), e)
+                            };
+
+                            let response_event = ClientEvent {
+                                event: Some(wasmbridge_client_proto::control_plane::client_event::Event::Response(CommandResponse {
+                                    command_id: cloud_cmd.command_id,
+                                    success,
+                                    data: response_data,
+                                    error_message: error_msg,
+                                })),
+                            };
+                            let _ = push_client.send_event(response_event).await;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ = reconnect_rx.recv() => {
+                println!("[HotReload] Received signal during active connection. Waiting for file to settle...");
+                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                break; // Break inner loop to restart outer loop and reload config
+            }
+        }
+    }
         }
     });
 
