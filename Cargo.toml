@@ -35,7 +35,8 @@ tokio = { version = "1.52.1", features = [
 serde = { workspace = true }
 serde_json = { workspace = true }
 extism = "1.21.0"
-serde_yml = "0.0.12"
+anyhow = "1.0"
+toml = "0.8"
 notify = "6.1"
 reqwest = { version = "0.12", features = [
 	"blocking",
@@ -48,7 +49,7 @@ rustls = { version = "0.23", features = [
 	"ring",
 ] }
 chrono = "0.4"
-[patch."https://github.com/wasmbrigde/wintray.git"]
+[patch."https://github.com/wasmbridge/wintray.git"]
 wintray = { path = "libs/wintray" }
 [patch."https://github.com/wasmbridge/bridge-protocol.git"]
 wasmbridge-client-proto = { path = "../bridge-protocol/crates/wasmbridge-client-proto" }

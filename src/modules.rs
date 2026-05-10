@@ -23,6 +23,11 @@ host_fn!(insecure_get(url: String) -> Vec<u8> {
     let handle = tokio::runtime::Handle::current();
     let result = tokio::task::block_in_place(|| {
         handle.block_on(async {
+            // Basic URL validation: only http/https allowed
+            if !url.starts_with("http://") && !url.starts_with("https://") {
+                return Err("Only http:// and https:// protocols are allowed".to_string());
+            }
+
             let resp = client.get(&url).send().await
                 .map_err(|e| e.to_string())?;
             let bytes = resp.bytes().await
@@ -91,7 +96,10 @@ impl ModuleRegistry {
         let name = {
             // Stage 1: Create a temporary plugin instance to call info() and get the plugin name.
             println!("Creating temporary plugin...");
-            let manifest = Manifest::new([Wasm::data(wasm_bytes.clone())]).with_allowed_host("*");
+            let manifest = Manifest::new([Wasm::data(wasm_bytes.clone())])
+                .with_allowed_host("*")
+                .with_timeout(std::time::Duration::from_millis(2000))
+                .with_memory_max(100);
             let imports = [
                 Function::new(
                     "insecure_get",
@@ -140,6 +148,8 @@ impl ModuleRegistry {
         println!("Creating final plugin with config...");
         let manifest = Manifest::new([Wasm::data(wasm_bytes.clone())])
             .with_allowed_host("*")
+            .with_timeout(std::time::Duration::from_millis(2000))
+            .with_memory_max(100)
             .with_config(settings.clone().into_iter());
         let imports = [
             Function::new(
@@ -198,6 +208,8 @@ impl ModuleRegistry {
             // To update it dynamically, we recreate the plugin instance.
             let manifest = Manifest::new([Wasm::data(module.wasm_bytes.clone())])
                 .with_allowed_host("*")
+                .with_timeout(std::time::Duration::from_millis(2000))
+                .with_memory_max(100)
                 .with_config(new_settings.clone().into_iter());
 
             let imports = [

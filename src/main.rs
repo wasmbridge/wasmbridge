@@ -8,19 +8,20 @@ use wasmbridge_client_proto::control_plane::{
 };
 use wintray::WintrayAppBuilder;
 use wintray::config::load_config;
+use anyhow::Context;
 
 #[cfg(not(windows))]
 compile_error!("WasmBridge currently only supports Windows.");
 
 #[cfg(windows)]
-fn main() {
+fn main() -> anyhow::Result<()> {
     // Initialize the shared plugin registry
     let registry = modules::ModuleRegistry::new();
 
     // Determine the directory for plugins (AppData/WasmBridge/plugins)
     let mut plugins_dir = std::env::var("APPDATA")
         .map(std::path::PathBuf::from)
-        .expect("AppData directory not found");
+        .context("AppData directory not found")?;
     plugins_dir.push("WasmBridge");
     plugins_dir.push("plugins");
 
@@ -34,7 +35,7 @@ fn main() {
     let address = format!("127.0.0.1:{}", config.port);
 
     // Initialize the shared Tokio runtime
-    let rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().context("Failed to initialize Tokio runtime")?;
     let _guard = rt.enter();
 
     // Explicitly install the cryptography provider for rustls (required in 0.23+)
@@ -46,7 +47,7 @@ fn main() {
     let registry_for_push = registry.clone();
     let (reconnect_tx, mut reconnect_rx) = tokio::sync::mpsc::channel::<()>(1);
 
-    // File Watcher for config.yml
+    // File Watcher for config.toml
     let reconnect_tx_watcher = reconnect_tx.clone();
     rt.spawn(async move {
         use notify::{EventKind, RecursiveMode, Watcher};
@@ -57,16 +58,16 @@ fn main() {
 
         let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
             if let Ok(event) = res {
-                let is_config_event = event.paths.iter().any(|p| p.ends_with("config.yml"));
+                let is_config_event = event.paths.iter().any(|p| p.ends_with("config.toml"));
                 if is_config_event && matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_)) {
-                    println!("[HotReload] config.yml changed, signaling reconnection...");
+                    println!("[HotReload] config.toml changed, signaling reconnection...");
                     let _ = reconnect_tx_watcher.try_send(());
                 }
             }
         })
-        .expect("Failed to start watcher");
+        .context("Failed to start watcher")?;
 
-        watcher.watch(config_dir, RecursiveMode::NonRecursive).expect("Failed to watch config directory");
+        watcher.watch(config_dir, RecursiveMode::NonRecursive).context("Failed to watch config directory")?;
 
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
@@ -196,4 +197,6 @@ fn main() {
         .with_address(address)
         .build()
         .run();
+
+    Ok(())
 }
