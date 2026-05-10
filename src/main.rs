@@ -2,13 +2,13 @@ mod admin;
 mod hardware_id;
 mod modules;
 
-use wasmbridge_client_proto::prelude::*;
+use anyhow::Context;
 use wasmbridge_client_proto::control_plane::{
     ClientEvent, CommandResponse, cloud_command::Command,
 };
+use wasmbridge_client_proto::prelude::*;
 use wintray::WintrayAppBuilder;
 use wintray::config::load_config;
-use anyhow::Context;
 
 #[cfg(not(windows))]
 compile_error!("WasmBridge currently only supports Windows.");
@@ -50,27 +50,40 @@ fn main() -> anyhow::Result<()> {
     // File Watcher for config.toml
     let reconnect_tx_watcher = reconnect_tx.clone();
     rt.spawn(async move {
-        use notify::{EventKind, RecursiveMode, Watcher};
-        let config_path = wintray::config::get_config_path();
-        let config_dir = config_path.parent().unwrap_or(std::path::Path::new("."));
+        let watcher_res: anyhow::Result<()> = async {
+            use notify::{EventKind, RecursiveMode, Watcher};
+            let config_path = wintray::config::get_config_path();
+            let config_dir = config_path.parent().unwrap_or(std::path::Path::new("."));
 
-        println!("[HotReload] Watching directory for config changes: {:?}", config_dir);
+            println!("[HotReload] Watching directory for config changes: {:?}", config_dir);
 
-        let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
-            if let Ok(event) = res {
-                let is_config_event = event.paths.iter().any(|p| p.ends_with("config.toml"));
-                if is_config_event && matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_)) {
-                    println!("[HotReload] config.toml changed, signaling reconnection...");
-                    let _ = reconnect_tx_watcher.try_send(());
-                }
+            let mut watcher =
+                notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
+                    if let Ok(event) = res {
+                        let is_config_event =
+                            event.paths.iter().any(|p| p.ends_with("config.toml"));
+                        if is_config_event
+                            && matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_))
+                        {
+                            println!("[HotReload] config.toml changed, signaling reconnection...");
+                            let _ = reconnect_tx_watcher.try_send(());
+                        }
+                    }
+                })
+                .context("Failed to start watcher")?;
+
+            watcher
+                .watch(config_dir, RecursiveMode::NonRecursive)
+                .context("Failed to watch config directory")?;
+
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
             }
-        })
-        .context("Failed to start watcher")?;
+        }
+        .await;
 
-        watcher.watch(config_dir, RecursiveMode::NonRecursive).context("Failed to watch config directory")?;
-
-        loop {
-            tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
+        if let Err(e) = watcher_res {
+            eprintln!("[HotReload] Watcher error: {}", e);
         }
     });
 
@@ -145,32 +158,37 @@ fn main() -> anyhow::Result<()> {
     loop {
         tokio::select! {
             Some(cloud_cmd) = push_client.receive_command() => {
-                if let Some(command) = cloud_cmd.command {
-                    match command {
-                        Command::ExecutePlugin(action) => {
-                            println!("[Router] Received ExecutePlugin for '{}'", action.target_plugin);
-                            let registry_task = registry_task_loop.clone();
-                            let result = tokio::task::spawn_blocking(move || {
-                                registry_task.execute_command(&action.target_plugin, &action.action, &action.payload)
-                            }).await.unwrap();
-
-                            let (success, response_data, error_msg) = match result {
-                                Ok(data) => (true, data, String::new()),
-                                Err(e) => (false, Vec::new(), e)
-                            };
-
-                            let response_event = ClientEvent {
-                                event: Some(wasmbridge_client_proto::control_plane::client_event::Event::Response(CommandResponse {
+                if let Some(Command::ExecutePlugin(action)) = cloud_cmd.command {
+                    println!("[Router] Received ExecutePlugin for '{}'", action.target_plugin);
+                    let registry_task = registry_task_loop.clone();
+                    let result = tokio::task::spawn_blocking(move || {
+                        registry_task.execute_command(
+                            &action.target_plugin,
+                            &action.action,
+                            &action.payload,
+                        )
+                    })
+                    .await
+                    .unwrap();
+ 
+                    let (success, response_data, error_msg) = match result {
+                        Ok(data) => (true, data, String::new()),
+                        Err(e) => (false, Vec::new(), e),
+                    };
+ 
+                    let response_event = ClientEvent {
+                        event: Some(
+                            wasmbridge_client_proto::control_plane::client_event::Event::Response(
+                                CommandResponse {
                                     command_id: cloud_cmd.command_id,
                                     success,
                                     data: response_data,
                                     error_message: error_msg,
-                                })),
-                            };
-                            let _ = push_client.send_event(response_event).await;
-                        }
-                        _ => {}
-                    }
+                                },
+                            ),
+                        ),
+                    };
+                    let _ = push_client.send_event(response_event).await;
                 }
             }
             _ = reconnect_rx.recv() => {

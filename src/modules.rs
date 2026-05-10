@@ -16,7 +16,7 @@ fn get_client() -> &'static reqwest::Client {
     })
 }
 
-/// Host function: Allows plugins to perform insecure HTTP GET requests.
+// Host function: Allows plugins to perform insecure HTTP GET requests.
 host_fn!(insecure_get(url: String) -> Vec<u8> {
     let client = get_client();
 
@@ -39,7 +39,7 @@ host_fn!(insecure_get(url: String) -> Vec<u8> {
     result.map_err(extism::Error::msg)
 });
 
-/// Host function: Allows plugins to get the current system date and time.
+// Host function: Allows plugins to get the current system date and time.
 host_fn!(get_date() -> String {
     let now = chrono::Local::now();
     Ok(now.format("%Y-%m-%d %H:%M:%S").to_string())

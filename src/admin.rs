@@ -2,6 +2,7 @@ use plugin_protocol::{PluginRequest, PluginResponse, SettingType};
 use std::collections::HashMap;
 use wintray::config::{load_config, save_config as framework_save_config};
 use wintray::exports::*;
+use wintray::poem::EndpointExt;
 
 // Static assets embedded into the WasmBridge binary (e.g., UI CSS, JS, images).
 #[wintray_assets]
@@ -48,7 +49,8 @@ struct IndexTemplate {
 }
 
 /// Handler for GET /: Renders the admin dashboard.
-async fn render_index(State(registry): State<crate::modules::ModuleRegistry>) -> impl IntoResponse {
+#[handler]
+async fn render_index(registry: Data<&crate::modules::ModuleRegistry>) -> impl IntoResponse {
     let config: AppConfig = load_config();
 
     let modules_data = {
@@ -74,6 +76,7 @@ async fn render_index(State(registry): State<crate::modules::ModuleRegistry>) ->
 }
 
 /// Handler for POST /save: Saves the global application configuration.
+#[handler]
 async fn save_config(Form(config): Form<AppConfig>) -> impl IntoResponse {
     match framework_save_config(&config) {
         Ok(_) => {
@@ -86,13 +89,14 @@ async fn save_config(Form(config): Form<AppConfig>) -> impl IntoResponse {
 }
 
 /// Generic dispatcher that routes HTTP requests to specific plugins.
+#[handler]
 async fn dispatch_request(
-    State(registry): State<crate::modules::ModuleRegistry>,
-    method: axum::http::Method,
-    headers: HeaderMap,
+    registry: Data<&crate::modules::ModuleRegistry>,
+    method: Method,
+    headers: &HeaderMap,
     Path((module_name, subpath)): Path<(String, String)>,
     Query(query): Query<HashMap<String, String>>,
-    body: Bytes,
+    body: Vec<u8>,
 ) -> impl IntoResponse {
     // 1. Locate the requested plugin in the registry.
     let plugin_arc = {
@@ -164,18 +168,17 @@ async fn dispatch_request(
             }
 
             let body_bytes = plugin_resp.body.unwrap_or_default();
-            response_builder.body(axum::body::Body::from(body_bytes)).unwrap().into_response()
+            response_builder.body(body_bytes).into_response()
         }
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Plugin execution error: {}", e))
             .into_response(),
     }
 }
 
-use axum::extract::Multipart;
-
 /// Handler for uploading a new WASM module file.
+#[handler]
 async fn upload_module(
-    State(registry): State<crate::modules::ModuleRegistry>,
+    registry: Data<&crate::modules::ModuleRegistry>,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
     while let Ok(Some(field)) = multipart.next_field().await {
@@ -185,7 +188,7 @@ async fn upload_module(
 
         if name == "plugin" && file_name.ends_with(".wasm") {
             let data = match field.bytes().await {
-                Ok(b) => b.to_vec(),
+                Ok(b) => b,
                 Err(e) => {
                     return (StatusCode::BAD_REQUEST, format!("Failed to read file: {}", e))
                         .into_response();
@@ -230,11 +233,10 @@ async fn upload_module(
             }
             println!("Module saved to {:?}", path);
 
-            return (
-                StatusCode::OK,
-                [("HX-Refresh", "true")],
-                format!("Module '{}' successfully uploaded and activated", file_name),
-            )
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header("HX-Refresh", "true")
+                .body(format!("Module '{}' successfully uploaded and activated", file_name))
                 .into_response();
         }
     }
@@ -243,8 +245,9 @@ async fn upload_module(
 }
 
 /// Handler for POST /admin/modules/:module_name/settings: Saves module-specific configuration.
+#[handler]
 async fn save_module_settings(
-    State(registry): State<crate::modules::ModuleRegistry>,
+    registry: Data<&crate::modules::ModuleRegistry>,
     Path(module_name): Path<String>,
     Form(settings): Form<HashMap<String, String>>,
 ) -> impl IntoResponse {
@@ -257,12 +260,12 @@ async fn save_module_settings(
 }
 
 /// Configures all routes for the admin interface and plugin proxy.
-pub fn admin_routes(registry: crate::modules::ModuleRegistry) -> Router {
-    Router::new()
-        .route("/", get(render_index))
-        .route("/save", post(save_config))
-        .route("/api/modules/{module_name}/{*subpath}", any(dispatch_request))
-        .route("/admin/modules/upload", post(upload_module))
-        .route("/admin/modules/{module_name}/settings", post(save_module_settings))
-        .with_state(registry)
+pub fn admin_routes(registry: crate::modules::ModuleRegistry) -> impl poem::IntoEndpoint {
+    Route::new()
+        .at("/", get(render_index))
+        .at("/save", post(save_config))
+        .at("/api/modules/:module_name/*subpath", dispatch_request)
+        .at("/admin/modules/upload", post(upload_module))
+        .at("/admin/modules/:module_name/settings", post(save_module_settings))
+        .data(registry)
 }
